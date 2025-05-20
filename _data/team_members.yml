@@ -22,18 +22,10 @@
   education1: BS, University of Michigan, Ann Arbor, MI
   education2: PhD in Molecular Genetics and Genomics, Washington University in St. Louis, St. Louis, MO
 
-- name: Feiyu Du
+ - name: Andrew Bonney
   photo: 
-  info: CLIA Bioinformatics scientist, Genomics expert
+  info: Bioinformatics Scientist, Deep-Learning enthusiast
   email: 
   number_educ: 2
-  education1: BS in Biology and MS in Microbiology, Wuhan University, Wuhan, China
-  education2: MS in Food Science, University of Missouri, Columbia, MO
-
-- name: Nidhi Davarapalli
-  photo: 
-  info: Bioinformatic scientist, Nextflow guru 
-  email: 
-  number_educ: 1
-  education1: BS in Bioengineering, University of Illinois, Champaign-Urbana, IL
- 
+  education1: BS in Biology, University of Missouri - Kansas City, MO
+  education2: MS in Bioinformatics and Computational Biology, Saint Louis University, St. Louis, MO
