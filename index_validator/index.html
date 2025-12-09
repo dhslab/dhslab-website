@@ -239,7 +239,7 @@
             const mgiData = [];
             
             // For filename generation
-            let batchAssay = "Assay";
+            let batchAssay = []; //"Assay";
             let globalHasErrors = false; // Flag to track if ANY row has errors
 
             const findMatch = (userVal, refList) => {
@@ -305,19 +305,19 @@
                 let target = checkAndReplace(row['target'], REF_DATA.targets, 'target', false);
 
                 // Capture first assay for filename
-                if(idx === 0 && assay) batchAssay = assay;
+                if(assay && !batchAssay.includes(assay)) batchAssay.push(assay);
 
                 if(["cutandtag","cutandrun","chipseq","chipmentation"].includes(String(assay).toLowerCase()) && !target) 
                     errors.push(`${assay} requires Target`);
 
                 // --- 4. Index Logic ---
-                const idxPair = (row['index_pair_name']||'').trim();
-                const idx7 = (row['index1_i7_name']||'').trim();
-                const idx5 = (row['index_2_i5_name']||'').trim();
-                let i7Seq = (row['index1_i7_sequence']||'').trim().toUpperCase();
-                let i5Seq = (row['index_2_i5_sequence']||'').trim().toUpperCase();
-                let wellPos = (row['well_position']||'').trim();
-                let adapterType = (row['adapter_type']||'').toLowerCase().trim();
+                const idxPair = String(row['index_pair_name']||'').trim();
+                const idx7 = String(row['index1_i7_name']||'').trim();
+                const idx5 = String(row['index_2_i5_name']||'').trim();
+                let i7Seq = String(row['index1_i7_sequence']||'').trim().toUpperCase();
+                let i5Seq = String(row['index_2_i5_sequence']||'').trim().toUpperCase();
+                let wellPos = String(row['well_position']||'').trim();
+                let adapterType = String(row['adapter_type']||'').toLowerCase().trim();
 
                 if(!idxPair && (!idx7 || !idx5)) errors.push("Index Pair Name OR both i7/i5 Names required");
 
@@ -472,7 +472,7 @@
             const now = new Date();
             const yymmdd = now.toISOString().slice(2,10).replace(/-/g,'');
             // Clean assay name for filename
-            const cleanAssay = batchAssay.replace(/[^a-zA-Z0-9]/g, "");
+            const cleanAssay = batchAssay.join("_").replace(/[^a-zA-Z0-9_]/g, "");
             generatedFilename = `Spencerlab ${cleanAssay} ${yymmdd}.xlsx`;
 
             // Update Button Text & Style
