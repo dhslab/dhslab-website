@@ -20,11 +20,11 @@
             <p class="text-gray-600 mt-2 mb-4">Clean and validate sample names and Illumina indexes for the NovaSeqXplus.</p>
             
             <div class="flex flex-wrap justify-center gap-4 text-sm">
-                <a href="valid_indexes_and_values.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
+                <a href="spencerlab_index_database.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download Database
                 </a>
-                <a href="valid_indexes_and_values_template.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
+                <a href="index_database_template.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download Blank Database
                 </a>
@@ -45,7 +45,7 @@
                 <div id="refAutoStatus" class="text-xs text-gray-500 mb-2">Attempting auto-load...</div>
                 
                 <div id="refManualArea" class="hidden mt-2">
-                    <label class="block text-xs font-bold text-red-500 mb-1">Auto-load failed. Upload 'valid_indexes_and_values.xlsx':</label>
+                    <label class="block text-xs font-bold text-red-500 mb-1">Auto-load failed. Upload 'index_database.xlsx':</label>
                     <input type="file" id="refInput" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer" accept=".xlsx">
                 </div>
                 <div id="refFinalStatus" class="mt-2 text-sm font-bold text-yellow-600">Waiting...</div>
@@ -77,7 +77,7 @@
         <div id="resultsSection" class="hidden">
             <div class="flex justify-between items-end mb-4">
                 <h2 class="text-xl font-bold text-gray-800">Validation Results</h2>
-                <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2">
+                <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 disabled:bg-gray-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     <span id="downloadBtnText">Download Validated Samplesheet</span>
                 </button>
@@ -117,9 +117,9 @@
 
         // --- STATE ---
         const REF_DATA = { indexes: [], cell_lines: [], assays: [], kits: [], targets: [] };
-        let templateWorkbook = null; 
+        let templateBuffer = null; // Store RAW buffer for resetting
         let finalWorkbook = null;
-        let generatedFilename = "Spencer Lab Samplesheet.xlsx"; // Default fallback
+        let generatedFilename = "Spencer Lab Samplesheet.xlsx";
         let isRefLoaded = false;
         let isTplLoaded = false;
 
@@ -129,10 +129,12 @@
         const step3 = document.getElementById('step3Container');
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadBtnText = document.getElementById('downloadBtnText');
 
         // --- INITIALIZATION ---
         window.addEventListener('DOMContentLoaded', () => {
-            loadServerFile('valid_indexes_and_values.xlsx', handleRefData, 'ref');
+            loadServerFile('spencerlab_index_database.xlsx', handleRefData, 'ref');
             loadServerFile('mgi_template.xlsx', handleTemplateData, 'tpl');
         });
 
@@ -175,7 +177,9 @@
             reader.onload = e => {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    // Load styles where possible
+                    // For template, we store the raw buffer to reset later
+                    if(prefix === 'tpl') templateBuffer = data; 
+                    
                     const wb = XLSX.read(data, {type: 'array', cellStyles: true});
                     callback(wb);
                     document.getElementById(prefix + 'FinalStatus').textContent = "Ready!";
@@ -209,7 +213,7 @@
         }
 
         function handleTemplateData(wb) {
-            templateWorkbook = wb;
+            // Just mark as loaded, we use the buffer later
             isTplLoaded = true;
         }
 
@@ -239,8 +243,8 @@
             const mgiData = [];
             
             // For filename generation
-            let batchAssay = []; //"Assay";
-            let globalHasErrors = false; // Flag to track if ANY row has errors
+            let batchAssay = [];
+            let globalHasErrors = false; 
 
             const findMatch = (userVal, refList) => {
                 if(!userVal) return null;
@@ -261,8 +265,8 @@
             rows.forEach((row, idx) => {
                 let errors = [], warnings = [];
                 
-                let indID = (row['individual_id']||'').trim().replace(/[-\s]/g, ""); 
-                let sampName = (row['sample_name']||'').trim().replace(/[-\s]/g, "");
+                let indID = String(row['individual_id']||'').trim().replace(/[-\s]/g, ""); 
+                let sampName = String(row['sample_name']||'').trim().replace(/[-\s]/g, "");
                 
                 MANDATORY_COLS.forEach(c => {
                     let val = (c==='sample_name'?sampName : c==='individual_id'?indID : row[c]);
@@ -494,7 +498,14 @@
         }
 
         function fillTemplate(data) {
-            finalWorkbook = templateWorkbook; 
+            // *** CRITICAL FIX: RESET WORKBOOK FROM BUFFER ***
+            if (!templateBuffer) {
+                console.error("Template buffer missing!");
+                return;
+            }
+            // Parse a fresh copy of the blank template every time
+            finalWorkbook = XLSX.read(templateBuffer, {type: 'array', cellStyles: true});
+            
             const sheetName = finalWorkbook.SheetNames[0];
             const ws = finalWorkbook.Sheets[sheetName];
 
