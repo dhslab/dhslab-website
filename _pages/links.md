@@ -6,6 +6,8 @@ sitemap: false
 permalink: /links/
 ---
 
+## [Spencer Lab Samplesheet and Index validator](https://www.davidspencerlab.org/index_validator/)
+
 ## hg38 genome with U2AF1 patch (see this [paper](https://pubmed.ncbi.nlm.nih.gov/35041928/))
 
 For loading in IGV (copy link and then load via the Genomes -> Load Genome From URL menubar):
