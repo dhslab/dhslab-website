@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spencer Lab Samplesheet Validator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .drop-zone { transition: all 0.3s ease; }
+        .drop-zone.dragover { background-color: #ebf8ff; border-color: #3182ce; }
+        .sticky-header th { position: sticky; top: 0; background-color: #f9fafb; z-index: 10; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8 text-gray-800">
+
+    <div class="max-w-7xl mx-auto">
+        <div class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-blue-700">Spencer Lab samplesheet validator for GTAC@MGI</h1>
+            <p class="text-gray-600 mt-2 mb-4">Clean and validate sample names and Illumina indexes for the NovaSeqXplus.</p>
+            
+            <div class="flex flex-wrap justify-center gap-4 text-sm">
+                <a href="spencerlab_index_database.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download Database
+                </a>
+                <a href="index_database_template.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download Blank Database
+                </a>
+                <a href="samplesheet_template.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download Input Template
+                </a>
+                <a href="mgi_template.xlsx" download class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded hover:bg-blue-50 text-blue-600 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download Blank MGI Samplesheet
+                </a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white p-6 rounded shadow border-l-4 border-yellow-500 transition-colors duration-500" id="refSection">
+                <h2 class="text-lg font-bold text-gray-700 mb-1">Loading Database</h2>
+                <div id="refAutoStatus" class="text-xs text-gray-500 mb-2">Attempting auto-load...</div>
+                
+                <div id="refManualArea" class="hidden mt-2">
+                    <label class="block text-xs font-bold text-red-500 mb-1">Auto-load failed. Upload 'index_database.xlsx':</label>
+                    <input type="file" id="refInput" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer" accept=".xlsx">
+                </div>
+                <div id="refFinalStatus" class="mt-2 text-sm font-bold text-yellow-600">Waiting...</div>
+            </div>
+
+            <div class="bg-white p-6 rounded shadow border-l-4 border-yellow-500 transition-colors duration-500" id="tplSection">
+                <h2 class="text-lg font-bold text-gray-700 mb-1">Loading Template</h2>
+                <div id="tplAutoStatus" class="text-xs text-gray-500 mb-2">Attempting auto-load...</div>
+
+                <div id="tplManualArea" class="hidden mt-2">
+                    <label class="block text-xs font-bold text-red-500 mb-1">Auto-load failed. Upload 'mgi_template.xlsx':</label>
+                    <input type="file" id="tplInput" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer" accept=".xlsx">
+                </div>
+                <div id="tplFinalStatus" class="mt-2 text-sm font-bold text-yellow-600">Waiting...</div>
+            </div>
+        </div>
+
+        <div id="step3Container" class="opacity-50 pointer-events-none transition-all duration-300">
+            <h2 class="text-lg font-bold text-gray-700 mb-2">Upload Input Samplesheet</h2>
+            <div id="dropZone" class="drop-zone bg-white border-2 border-dashed border-gray-300 rounded-lg p-10 text-center cursor-pointer mb-8 hover:border-blue-500">
+                <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls, .csv">
+                <div class="pointer-events-none">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="mt-2 text-lg text-gray-700">Upload <span class="font-semibold text-blue-600">template_samplesheet.xlsx</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsSection" class="hidden">
+            <div class="flex justify-between items-end mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Validation Results</h2>
+                <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2 disabled:bg-gray-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span id="downloadBtnText">Download Validated Samplesheet</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto bg-white rounded shadow max-h-[600px] overflow-y-auto border">
+                <table class="min-w-full text-sm relative">
+                    <thead class="bg-gray-50 border-b sticky-header">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Tube Label</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Individual ID</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Sample Name</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider w-1/2">Validation Messages</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const GITHUB_CLIENT_ID = "Ov23liTVrPCC1CU4vdWF"; // From GitHub Settings
+        const AUTH_API_URL = "https://tl5l9h8sfi.execute-api.us-east-1.amazonaws.com/auth"; // From Step F
+
+        const REQUIRED_HEADERS = [
+            "date", "tube_label", "individual_id", "sample_name", "sample_source",
+            "assay", "target", "kit", "agilent_filename", "adapter_type", "well_position",
+            "index_pair_name", "index1_i7_name", "index1_i7_sequence",
+            "index_2_i5_name", "index_2_i5_sequence", "concentration_ng_ul",
+            "mean_library_size", "library_volume"
+        ];
+        const MANDATORY_COLS = [
+            "tube_label", "individual_id", "sample_name", "sample_source",
+            "assay", "concentration_ng_ul", "mean_library_size", "library_volume",
+            "adapter_type", "index1_i7_sequence", "index_2_i5_sequence"
+        ];
+
+        // --- STATE ---
+        const REF_DATA = { indexes: [], cell_lines: [], assays: [], kits: [], targets: [] };
+        let templateBuffer = null; // Store RAW buffer for resetting
+        let finalWorkbook = null;
+        let generatedFilename = "Spencer Lab Samplesheet.xlsx";
+        let isRefLoaded = false;
+        let isTplLoaded = false;
+
+        // --- UI ELEMENTS ---
+        const refSection = document.getElementById('refSection');
+        const tplSection = document.getElementById('tplSection');
+        const step3 = document.getElementById('step3Container');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadBtnText = document.getElementById('downloadBtnText');
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            loadServerFile('spencerlab_index_database.xlsx', handleRefData, 'ref');
+            loadServerFile('mgi_template.xlsx', handleTemplateData, 'tpl');
+        });
+
+        document.getElementById('refInput').addEventListener('change', e => parseFile(e.target.files[0], handleRefData, 'ref'));
+        document.getElementById('tplInput').addEventListener('change', e => parseFile(e.target.files[0], handleTemplateData, 'tpl'));
+        
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => processSamplesheet(e.target.files[0]));
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if(e.dataTransfer.files.length) processSamplesheet(e.dataTransfer.files[0]);
+        });
+        
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if(finalWorkbook) XLSX.writeFile(finalWorkbook, generatedFilename);
+        });
+
+        // --- LOADING LOGIC ---
+        async function loadServerFile(filename, callback, prefix) {
+            try {
+                const response = await fetch(filename);
+                if(!response.ok) throw new Error("Fetch failed");
+                const blob = await response.blob();
+                parseFile(blob, callback, prefix);
+                document.getElementById(prefix + 'AutoStatus').textContent = "Loaded from server.";
+                document.getElementById(prefix + 'AutoStatus').className = "text-xs text-green-600 font-bold mb-2";
+            } catch(e) {
+                document.getElementById(prefix + 'AutoStatus').textContent = "Server file not found.";
+                document.getElementById(prefix + 'AutoStatus').className = "text-xs text-red-400 mb-2";
+                document.getElementById(prefix + 'ManualArea').classList.remove('hidden');
+            }
+        }
+
+        function parseFile(fileBlob, callback, prefix) {
+            if(!fileBlob) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    // For template, we store the raw buffer to reset later
+                    if(prefix === 'tpl') templateBuffer = data; 
+                    
+                    const wb = XLSX.read(data, {type: 'array', cellStyles: true});
+                    callback(wb);
+                    document.getElementById(prefix + 'FinalStatus').textContent = "Ready!";
+                    document.getElementById(prefix + 'FinalStatus').className = "mt-2 text-sm font-bold text-green-600";
+                    document.getElementById(prefix + 'Section').classList.replace('border-yellow-500', 'border-green-500');
+                    document.getElementById(prefix + 'ManualArea').classList.add('hidden');
+                    checkAllLoaded();
+                } catch(err) {
+                    alert("Error parsing file: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(fileBlob);
+        }
+
+        function checkAllLoaded() {
+            if(isRefLoaded && isTplLoaded) {
+                step3.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function handleRefData(wb) {
+            if(!wb.Sheets['indexes']) throw new Error("Missing 'indexes' sheet.");
+            REF_DATA.indexes = XLSX.utils.sheet_to_json(wb.Sheets['indexes']);
+            ['cell_lines', 'assays', 'kits', 'targets'].forEach(key => {
+                if (wb.Sheets[key]) {
+                    const raw = XLSX.utils.sheet_to_json(wb.Sheets[key], {header:1});
+                    REF_DATA[key] = raw.flat().map(v => String(v).trim()).filter(v => v);
+                }
+            });
+            isRefLoaded = true;
+        }
+
+        function handleTemplateData(wb) {
+            // Just mark as loaded, we use the buffer later
+            isTplLoaded = true;
+        }
+
+        // --- PROCESSING LOGIC ---
+        function processSamplesheet(file) {
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, {defval:""});
+                
+                if(json.length === 0) { alert("File is empty"); return; }
+                const fileHeaders = Object.keys(json[0]).map(h => h.trim());
+                const missing = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h));
+                if(missing.length > 0) { alert(`Missing headers:\n${missing.join(', ')}`); return; }
+                
+                validateAndFill(json);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function validateAndFill(rows) {
+            const tableBody = document.getElementById('resultsTableBody');
+            tableBody.innerHTML = "";
+            const mgiData = [];
+            
+            // For filename generation
+            let batchAssay = [];
+            let globalHasErrors = false; 
+
+            const findMatch = (userVal, refList) => {
+                if(!userVal) return null;
+                const userLower = String(userVal).trim().toLowerCase();
+                const matches = refList.filter(refItem => {
+                    const refLower = String(refItem).trim().toLowerCase();
+                    return refLower.includes(userLower) || userLower.includes(refLower);
+                });
+                if(matches.length === 1) return matches[0]; 
+                if(matches.length > 1) {
+                    const exact = matches.find(m => m.toLowerCase() === userLower);
+                    if(exact) return exact;
+                    return "AMBIGUOUS"; 
+                }
+                return null;
+            };
+
+            rows.forEach((row, idx) => {
+                let errors = [], warnings = [];
+                
+                let indID = String(row['individual_id']||'').trim().replace(/[-\s]/g, ""); 
+                let sampName = String(row['sample_name']||'').trim().replace(/[-\s]/g, "");
+                
+                MANDATORY_COLS.forEach(c => {
+                    let val = (c==='sample_name'?sampName : c==='individual_id'?indID : row[c]);
+                    if(!val || String(val).trim()==="") errors.push(`Missing ${c}`);
+                });
+
+                let source = String(row['sample_source'] || '').trim().toLowerCase();
+                let species = source; 
+
+                if (source === 'cell line' || source === 'cell_line') {
+                    species = "human";
+                    const match = findMatch(indID, REF_DATA.cell_lines);
+                    if (match && match !== "AMBIGUOUS") {
+                        indID = match; 
+                    } else if (match === "AMBIGUOUS") {
+                        errors.push(`Cell Line ID ambiguous.`);
+                    } else {
+                        errors.push(`Invalid Cell Line ID.`);
+                    }
+                } else if(source && source!=='human' && source!=='mouse') {
+                    errors.push("Invalid Source");
+                }
+
+                const checkAndReplace = (val, list, name, req) => {
+                    if(!val) return "";
+                    const match = findMatch(val, list);
+                    if(match && match !== "AMBIGUOUS") return match;
+                    if(match === "AMBIGUOUS") {
+                        const msg = `Ambiguous ${name}`;
+                        req ? errors.push(msg) : warnings.push(msg);
+                        return val;
+                    }
+                    if(req) errors.push(`Invalid ${name} '${val}'`); 
+                    else warnings.push(`Unknown ${name} '${val}'`);
+                    return val;
+                };
+
+                let assay = checkAndReplace(row['assay'], REF_DATA.assays, 'assay', true);
+                let kit = checkAndReplace(row['kit'], REF_DATA.kits, 'kit', false);
+                let target = checkAndReplace(row['target'], REF_DATA.targets, 'target', false);
+
+                // Capture first assay for filename
+                if(assay && !batchAssay.includes(assay)) batchAssay.push(assay);
+
+                if(["cutandtag","cutandrun","chipseq","chipmentation"].includes(String(assay).toLowerCase()) && !target) 
+                    errors.push(`${assay} requires Target`);
+
+                // --- 4. Index Logic ---
+                const idxPair = String(row['index_pair_name']||'').trim();
+                const idx7 = String(row['index1_i7_name']||'').trim();
+                const idx5 = String(row['index_2_i5_name']||'').trim();
+                let i7Seq = String(row['index1_i7_sequence']||'').trim().toUpperCase();
+                let i5Seq = String(row['index_2_i5_sequence']||'').trim().toUpperCase();
+                let wellPos = String(row['well_position']||'').trim();
+                let adapterType = String(row['adapter_type']||'').toLowerCase().trim();
+
+                if(!idxPair && (!idx7 || !idx5)) errors.push("Index Pair Name OR both i7/i5 Names required");
+
+                // Determine Filter Keyword based on Adapter Type
+                let filterKeyword = "";
+                if(adapterType.includes("illumina")) filterKeyword = "illumina";
+                else if(adapterType.includes("stubby")) filterKeyword = "stubby";
+                else if(adapterType.includes("nextera")) filterKeyword = "nextera";
+                else if(adapterType.includes("full") || adapterType.includes("truseq")) filterKeyword = "spencerlab_full_truseq"; 
+
+                let foundIndex = null;
+                
+                // Initial Broad Search (Filter by Adapter Type + Fuzzy Name Match)
+                const dbMatches = REF_DATA.indexes.filter(r => {
+                    // 1. Adapter Type Filter
+                    if(filterKeyword) {
+                        const type = (r.type || "").toLowerCase();
+                        if(filterKeyword === "spencerlab_full_truseq") {
+                             if(!type.includes("full") && !type.includes("truseq")) return false;
+                        } else { if(!type.includes(filterKeyword)) return false; }
+                    }
+
+                    // 2. Name Match (Pair, i7, or i5)
+                    const qPair = idxPair.toUpperCase();
+                    const q7 = idx7.toUpperCase();
+                    const q5 = idx5.toUpperCase();
+                    const rName = (r.index_name||'').toUpperCase();
+                    const r7 = (r.i7_index_name||'').toUpperCase();
+                    const r5 = (r.i5_index_name||'').toUpperCase();
+
+                    // If pair name provided, check broad match
+                    if (qPair && (rName === qPair || rName.includes(qPair))) return true;
+                    // If individual names provided, check broad match
+                    if (q7 && (r7 === q7 || r7.includes(q7))) return true;
+                    if (q5 && (r5 === q5 || r5.includes(q5))) return true;
+                    
+                    return false;
+                });
+
+                // Resolve Matches
+                if (dbMatches.length === 1) {
+                    foundIndex = dbMatches[0];
+                } 
+                else if (dbMatches.length > 1) {
+                    // Refine multiple matches by checking specific fields if they are provided
+                    const refined = dbMatches.filter(r => {
+                        let match = true;
+                        
+                        // Check i7 Name
+                        if (idx7) {
+                            const dbVal = (r.i7_index_name || '').toUpperCase();
+                            if (dbVal !== idx7.toUpperCase()) match = false;
+                        }
+                        // Check i7 Sequence
+                        if (i7Seq) {
+                            const dbVal = (r.i7_samplesheet || r.i7_sequence || '').toUpperCase();
+                            if (dbVal !== i7Seq) match = false;
+                        }
+                        // Check i5 Name
+                        if (idx5) {
+                            const dbVal = (r.i5_index_name || '').toUpperCase();
+                            if (dbVal !== idx5.toUpperCase()) match = false;
+                        }
+                        // Check i5 Sequence
+                        if (i5Seq) {
+                            const dbVal = (r.i5_samplesheet || r.i5_sequence || '').toUpperCase();
+                            if (dbVal !== i5Seq) match = false;
+                        }
+                        
+                        // Also, if Pair Name was provided, prioritize exact match on that
+                        if (idxPair) {
+                             const dbVal = (r.index_name || '').toUpperCase();
+                             // If it doesn't match exactly, and we have multiple broad matches, this might not be the one
+                             if (dbVal !== idxPair.toUpperCase()) {
+                                 // Only penalize if we strictly expect pair name consistency, 
+                                 // usually safe to rely on i7/i5 checks above, but let's be strict if provided.
+                                 if(!match) return false; 
+                             }
+                        }
+
+                        return match;
+                    });
+
+                    if (refined.length === 1) {
+                        foundIndex = refined[0];
+                    } else {
+                        // Gather provided info for error message
+                        const providedInfo = [
+                            idxPair ? `Pair:${idxPair}` : '',
+                            idx7 ? `i7:${idx7}` : '',
+                            i7Seq ? `i7Seq:${i7Seq}` : '',
+                            idx5 ? `i5:${idx5}` : '',
+                            i5Seq ? `i5Seq:${i5Seq}` : ''
+                        ].filter(Boolean).join(', ');
+                        
+                        errors.push(`Index pair ambiguous. Provided [${providedInfo}] matches ${refined.length > 0 ? refined.length : dbMatches.length} entries.`);
+                    }
+                } 
+                else {
+                    errors.push(`Index pair not found (${filterKeyword || 'No Adapter Filter'}).`);
+                }
+
+                // Verify Found Index (Final Validation)
+                if(foundIndex) {
+                    const db_i7 = (foundIndex.i7_samplesheet || foundIndex.i7_sequence || '').toUpperCase();
+                    const db_i5 = (foundIndex.i5_samplesheet || foundIndex.i5_sequence || '').toUpperCase();
+                    
+                    // Info string for error context
+                    const dbInfo = `DB Pair:${foundIndex.index_name}, i7:${foundIndex.i7_index_name}(${db_i7}), i5:${foundIndex.i5_index_name}(${db_i5})`;
+
+                    if(i7Seq && i7Seq !== db_i7) errors.push(`i7 mismatch. Entry has ${i7Seq}, expected ${db_i7}. [${dbInfo}]`);
+                    if(i5Seq && db_i5 && i5Seq !== db_i5) errors.push(`i5 mismatch. Entry has ${i5Seq}, expected ${db_i5}. [${dbInfo}]`);
+                    if(wellPos && foundIndex['plate location'] && wellPos !== foundIndex['plate location']) 
+                        errors.push(`Well mismatch. Entry has ${wellPos}, expected ${foundIndex['plate location']}. [${dbInfo}]`);
+                }
+
+                const conc = parseFloat(row['concentration_ng_ul']);
+                const size = parseFloat(row['mean_library_size']);
+                let mol = 0;
+                if(conc && size) mol = (conc / (size * 660)) * 1e6;
+                if(mol < 2 || mol > 30) warnings.push(`Molarity ${mol.toFixed(1)}nM out of range`);
+
+                if(errors.length > 0) globalHasErrors = true;
+
+                let finalName = `${indID}-${sampName}-${assay}` + (target ? `_${target}`: "");
+
+                mgiData.push({
+                    "Sample Name": finalName,
+                    "Species": species,
+                    "Library Concentration (ng/µl)": conc,
+                    "Library Ave Size (bp)": size,
+                    "Library Molarity (nM)": mol.toFixed(2),
+                    "Library Volume (µl)": row['library_volume'],
+                    "Index1 or Pair Name": idxPair || idx7,
+                    "Index2 Name": idxPair ? "" : idx5,
+                    "i7 (Index 1) Sequence": foundIndex ? foundIndex.i7_samplesheet : i7Seq,
+                    "i5 (Index 2)_workflow_a": foundIndex ? foundIndex.i5_samplesheet : i5Seq,
+                    "Targeted read-pairs (millions) for Library": "",
+                    "Tube Label or External Barcode": row['tube_label'],
+                    "2D Rack Holder": "",
+                    "Well Location": "",
+                    "Validation": [...errors, ...warnings].join("; ")
+                });
+
+                const tr = document.createElement('tr');
+                tr.className = errors.length ? "bg-red-50" : warnings.length ? "bg-yellow-50" : "bg-green-50";
+                tr.innerHTML = `<td class="px-4 py-2 border">${row['tube_label']||'-'}</td><td class="px-4 py-2 border">${indID}</td><td class="px-4 py-2 border">${sampName}</td><td class="px-4 py-2 border font-bold ${errors.length?'text-red-600':warnings.length?'text-yellow-600':'text-green-600'}">${errors.length?'Error':warnings.length?'Warning':'OK'}</td><td class="px-4 py-2 border text-xs">${errors.map(e=>`<div class='text-red-600'>• ${e}</div>`).join('')}${warnings.map(w=>`<div class='text-yellow-600'>• ${w}</div>`).join('')}</td>`;
+                tableBody.appendChild(tr);
+            });
+
+            // Generate Filename: Spencerlab + assay + YYMMDD .xlsx
+            // Get current date in local system time
+            const now = new Date();
+            const year = String(now.getFullYear()).slice(-2); // Last 2 digits of year
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-11, so add 1
+            const day = String(now.getDate()).padStart(2, '0'); // Ensure 2 digits
+            
+            const yymmdd = year + month + day;
+            // Clean assay name for filename
+            const cleanAssay = batchAssay.join("_").replace(/[^a-zA-Z0-9_]/g, "");
+            generatedFilename = `Spencerlab ${cleanAssay} ${yymmdd}.xlsx`;
+
+            // Update Button Text & Style
+            if(globalHasErrors) {
+                downloadBtnText.textContent = "Download Samplesheet (needs fixing...)";
+                downloadBtn.className = "bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2";
+            } else {
+                downloadBtnText.textContent = "Download Validated Samplesheet";
+                downloadBtn.className = "bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow flex items-center gap-2";
+            }
+
+            document.getElementById('resultsSection').classList.remove('hidden');
+            fillTemplate(mgiData);
+        }
+
+        function fillTemplate(data) {
+            // *** CRITICAL FIX: RESET WORKBOOK FROM BUFFER ***
+            if (!templateBuffer) {
+                console.error("Template buffer missing!");
+                return;
+            }
+            // Parse a fresh copy of the blank template every time
+            finalWorkbook = XLSX.read(templateBuffer, {type: 'array', cellStyles: true});
+            
+            const sheetName = finalWorkbook.SheetNames[0];
+            const ws = finalWorkbook.Sheets[sheetName];
+
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            const headers = [];
+            for(let C = range.s.c; C <= range.e.c; ++C) {
+                const cell = ws[XLSX.utils.encode_cell({c:C, r:0})];
+                headers.push(cell && cell.v ? String(cell.v).trim() : "");
+            }
+
+            let valColIndex = headers.indexOf("Validation");
+            if (valColIndex === -1) {
+                valColIndex = headers.length;
+                headers.push("Validation");
+                const cellRef = XLSX.utils.encode_cell({c: valColIndex, r: 0});
+                ws[cellRef] = { v: "Validation", t: 's' };
+                range.e.c = valColIndex; 
+                ws['!ref'] = XLSX.utils.encode_range(range);
+            }
+
+            const rowsToWrite = data.map(row => {
+                return headers.map(h => row[h] || "");
+            });
+
+            XLSX.utils.sheet_add_aoa(ws, rowsToWrite, { origin: { r: 1, c: 0 } });
+        }
+    </script>
+</body>
+</html>
